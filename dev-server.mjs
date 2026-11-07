@@ -17,6 +17,7 @@ const assets = {
   '/index.html': ['index.html', 'text/html'],
   '/styles.css': ['styles.css', 'text/css'],
   '/app.js': ['app.js', 'text/javascript'],
+  '/polling.js': ['polling.js', 'text/javascript'],
 };
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${port}`);
