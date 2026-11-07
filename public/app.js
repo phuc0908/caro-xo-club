@@ -170,6 +170,7 @@ function paint() {
   $('rematchArea').classList.toggle('hidden', !ended || mode === 'practice');
   $('modeTag').textContent = ({ ai: 'ĐẤU VỚI AI', online: 'PHÒNG ONLINE', local: 'HAI NGƯỜI CÙNG MÁY', practice: 'TẬP CHƠI' })[mode] || 'CARO 15 × 15';
   $('count').textContent = practice ? 'Bài ' + (practice.step + 1) + ' / 3' : (g?.moves.length || 0) + ' nước' + (g ? ' · Ván ' + g.round : '');
+  $('count').classList.toggle('hidden', !g);
   $('navOnline').classList.toggle('active', mode === 'online');
   $('navAI').classList.toggle('active', mode === 'ai');
   $('navLocal').classList.toggle('active', mode === 'local');
@@ -179,8 +180,8 @@ function paint() {
   $('hintText').textContent = suggestion?.text || 'Xem một nước đi đề xuất và lý do chọn ô đó.';
 
   if (!g) {
-    $('status').textContent = 'Ván đầu tiên bắt đầu từ đây';
-    $('detail').textContent = 'Bấm Chơi ngay để thử sức với AI Dễ.';
+    $('status').textContent = 'Sẵn sàng chơi?';
+    $('detail').textContent = 'Đấu thử với AI Dễ.';
     $('turnPill').textContent = 'X đi trước · Nối 5 quân để thắng';
     $('turnPill').className = 'turn-pill';
     $('controlTitle').textContent = 'Chơi theo cách của bạn';
@@ -650,6 +651,49 @@ function revealCell(index) {
   const viewport = $('boardViewport'), cell = cells[index];
   viewport.scrollTo({ left: cell.offsetLeft - viewport.clientWidth / 2 + cell.offsetWidth / 2, top: cell.offsetTop - viewport.clientHeight / 2 + cell.offsetHeight / 2, behavior: reduceMotion() ? 'auto' : 'smooth' });
 }
+
+// Native touch and wheel scrolling stay enabled. Mouse dragging only pans a
+// board that actually overflows; finishing a drag must never place a piece.
+const boardViewport = $('boardViewport');
+let boardDrag = null, suppressBoardClick = false;
+boardViewport.addEventListener('pointerdown', event => {
+  if (event.pointerType !== 'mouse' || event.button !== 0) return;
+  if (boardViewport.scrollWidth <= boardViewport.clientWidth && boardViewport.scrollHeight <= boardViewport.clientHeight) return;
+  boardDrag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, left: boardViewport.scrollLeft, top: boardViewport.scrollTop, moved: false };
+});
+boardViewport.addEventListener('pointermove', event => {
+  if (!boardDrag || event.pointerId !== boardDrag.pointerId) return;
+  const dx = event.clientX - boardDrag.x, dy = event.clientY - boardDrag.y;
+  if (!boardDrag.moved && Math.hypot(dx, dy) < 5) return;
+  if (!boardDrag.moved) {
+    boardDrag.moved = true;
+    boardViewport.setPointerCapture(event.pointerId);
+    boardViewport.classList.add('dragging');
+  }
+  boardViewport.scrollLeft = boardDrag.left - dx;
+  boardViewport.scrollTop = boardDrag.top - dy;
+  event.preventDefault();
+});
+function endBoardDrag(event) {
+  if (!boardDrag || event.pointerId !== boardDrag.pointerId) return;
+  if (boardDrag.moved) {
+    suppressBoardClick = true;
+    setTimeout(() => { suppressBoardClick = false; }, 0);
+  }
+  boardDrag = null;
+  boardViewport.classList.remove('dragging');
+  if (boardViewport.hasPointerCapture(event.pointerId)) boardViewport.releasePointerCapture(event.pointerId);
+}
+boardViewport.addEventListener('pointerup', endBoardDrag);
+boardViewport.addEventListener('pointercancel', endBoardDrag);
+boardViewport.addEventListener('lostpointercapture', endBoardDrag);
+boardViewport.addEventListener('pointerleave', event => { if (boardDrag && !boardDrag.moved) endBoardDrag(event); });
+boardViewport.addEventListener('click', event => {
+  if (!suppressBoardClick) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  suppressBoardClick = false;
+}, true);
 
 board.addEventListener('focusin', event => {
   if (!event.target.matches('.cell')) return;

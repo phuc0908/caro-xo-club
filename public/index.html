@@ -22,19 +22,6 @@
       </div>
     </header>
 
-    <section class="welcome" id="welcome" aria-labelledby="welcomeTitle">
-      <div>
-        <span class="eyebrow">CHƠI MỘT VÁN NHÉ</span>
-        <h2 id="welcomeTitle">Một nước đi nhỏ.<br>Một ván cờ thật vui.</h2>
-        <p>Nối 5 quân để thắng. Thử sức với AI hoặc rủ một người bạn cùng chơi Caro.</p>
-      </div>
-      <div class="welcome-actions">
-        <button class="btn quick-play" id="quickPlay">Chơi ngay</button>
-        <small>Đấu AI Dễ · Không cần nhập tên</small>
-        <button class="text-button" id="learnStart">Lần đầu chơi? Thử 3 bài tập ngắn</button>
-      </div>
-    </section>
-
     <nav class="nav" aria-label="Chọn chế độ chơi">
       <button id="navAI">Đấu với AI <small>3 độ khó</small></button>
       <button id="navOnline">Chơi online <small>Mời bạn bè vào phòng</small></button>
@@ -49,10 +36,13 @@
         </div>
         <div class="board-status">
           <div>
-            <h2 class="status" id="status" aria-live="polite">Ván đầu tiên bắt đầu từ đây</h2>
-            <p class="detail" id="detail">Bấm Chơi ngay để thử sức với AI Dễ.</p>
+            <h2 class="status" id="status" aria-live="polite">Sẵn sàng chơi?</h2>
+            <p class="detail" id="detail">Đấu thử với AI Dễ.</p>
           </div>
-          <span class="count" id="count">0 nước</span>
+          <div class="board-start" id="welcome">
+            <button class="btn quick-play" id="quickPlay">Chơi ngay</button>
+          </div>
+          <span class="count hidden" id="count">0 nước</span>
         </div>
         <div class="turn-pill" id="turnPill">X đi trước · Nối 5 quân để thắng</div>
 
@@ -87,6 +77,7 @@
         <h2 id="controlTitle">Chơi theo cách của bạn</h2>
         <p id="controlHelp">Mời bạn bè hoặc chọn một chế độ khác.</p>
         <div id="lobby">
+          <button class="text-button" id="learnStart">Lần đầu chơi? Thử 3 bài tập ngắn</button>
           <div class="section">
             <label class="label" for="nickname">Tên hiển thị <span class="optional">(tùy chọn)</span></label>
             <input class="input" id="nickname" maxlength="24" autocomplete="nickname" placeholder="Người chơi">
