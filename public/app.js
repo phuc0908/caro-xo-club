@@ -1,4 +1,4 @@
-'use strict';
+import { RoomPoller, retryAfterMs } from './polling.js';
 
 const N = 15;
 const $ = id => document.getElementById(id);
@@ -10,8 +10,9 @@ const storage = {
   set(key, value) { try { localStorage.setItem(key, value); } catch {} },
 };
 let game = null, mode = '', side = '', id = '', room = '', difficulty = 'easy';
-let pending = false, live = true, thinking = false, poll, aiDelay, toastTimer;
-let session = 0, aiNonce = 0, checkingSession = null, suggestion = null, practice = null;
+let pending = false, live = true, thinking = false, aiDelay, toastTimer;
+let session = 0, aiNonce = 0, suggestion = null, practice = null;
+let roomPolling = null, roomUnavailable = false;
 let boardFocusIndex = 112, audioContext, soundBus;
 let soundEnabled = storage.get('caro-sound') === 'on';
 const audioSupported = Boolean(window.AudioContext || window.webkitAudioContext);
@@ -94,7 +95,7 @@ function updateSoundButton() {
 }
 
 function stopTimers() {
-  clearTimeout(poll);
+  roomPolling?.stop();
   clearTimeout(aiDelay);
   aiNonce++;
   thinking = false;
@@ -107,6 +108,7 @@ function resetSession() {
   mode = ''; side = ''; id = ''; room = '';
   practice = null; suggestion = null;
   pending = false; live = true; boardFocusIndex = 112;
+  roomUnavailable = false;
   $('notice').textContent = '';
 }
 
@@ -168,8 +170,8 @@ function paint() {
   $('coach').classList.toggle('hidden', mode !== 'practice');
   $('hintArea').classList.toggle('hidden', !g || !['ai', 'practice'].includes(mode) || ended || Boolean(practice?.completed));
   $('rematchArea').classList.toggle('hidden', !ended || mode === 'practice');
-  $('modeTag').textContent = ({ ai: 'ĐẤU VỚI AI', online: 'PHÒNG ONLINE', local: 'HAI NGƯỜI CÙNG MÁY', practice: 'TẬP CHƠI' })[mode] || 'CARO 15 × 15';
-  $('count').textContent = practice ? 'Bài ' + (practice.step + 1) + ' / 3' : (g?.moves.length || 0) + ' nước' + (g ? ' · Ván ' + g.round : '');
+  $('modeTag').textContent = ({ ai: 'Đấu với AI', online: 'Trực tuyến', local: 'Chơi cùng máy', practice: 'Tập chơi' })[mode] || 'Cờ Caro';
+  $('count').textContent = practice ? 'Bài ' + (practice.step + 1) + '/3' : g ? 'Ván ' + g.round + ' · ' + g.moves.length + ' nước' : '0 nước';
   $('count').classList.toggle('hidden', !g);
   $('navOnline').classList.toggle('active', mode === 'online');
   $('navAI').classList.toggle('active', mode === 'ai');
@@ -180,18 +182,19 @@ function paint() {
   $('hintText').textContent = suggestion?.text || 'Xem một nước đi đề xuất và lý do chọn ô đó.';
 
   if (!g) {
-    $('status').textContent = 'Sẵn sàng chơi?';
-    $('detail').textContent = 'Đấu thử với AI Dễ.';
+    $('status').textContent = 'Bắt đầu ván cờ';
+    $('detail').textContent = 'Đấu AI ở mức Dễ.';
     $('turnPill').textContent = 'X đi trước · Nối 5 quân để thắng';
     $('turnPill').className = 'turn-pill';
-    $('controlTitle').textContent = 'Chơi theo cách của bạn';
-    $('controlHelp').textContent = 'Mời bạn bè hoặc chọn một chế độ khác.';
+    $('controlTitle').textContent = 'Chế độ chơi';
+    $('controlHelp').textContent = 'Chơi với AI hoặc mời bạn bè tham gia.';
   } else {
     $('controlTitle').textContent = mode === 'practice' ? 'Làm quen với bàn cờ' : 'Trận đấu của bạn';
     $('controlHelp').textContent = mode === 'practice' ? 'Ba bài tập ngắn. Bạn có thể bỏ qua bất cứ lúc nào.' : 'Mỗi lượt đặt một quân. X luôn đi trước.';
-    $('room').textContent = mode === 'online' ? room : mode === 'ai' ? 'AI · ' + levels[difficulty] : mode === 'practice' ? 'TẬP CHƠI' : 'CÙNG MÁY';
-    $('roomTitle').textContent = mode === 'online' ? 'MÃ PHÒNG' : 'CHẾ ĐỘ HIỆN TẠI';
-    $('connection').textContent = mode === 'online' ? live ? 'Đã kết nối' : 'Đang kết nối lại…' : mode === 'ai' ? 'Bạn cầm X · AI cầm O' : 'Chơi trên thiết bị này';
+    $('room').textContent = mode === 'online' ? room : mode === 'ai' ? 'AI · ' + levels[difficulty] : mode === 'practice' ? 'Tập chơi' : 'Chơi cùng máy';
+    $('room').classList.toggle('is-code', mode === 'online');
+    $('roomTitle').textContent = mode === 'online' ? 'Mã phòng' : 'Chế độ chơi';
+    $('connection').textContent = mode === 'online' ? roomUnavailable ? 'Phòng không khả dụng' : live ? 'Đã kết nối' : 'Đang kết nối lại…' : mode === 'ai' ? 'Bạn cầm X · AI cầm O' : 'Chơi trên thiết bị này';
     $('invite').classList.toggle('hidden', mode !== 'online');
     $('px').textContent = g.players.X?.name || 'Đang chờ';
     $('po').textContent = g.players.O?.name || 'Đang chờ';
@@ -205,8 +208,8 @@ function paint() {
       $('status').textContent = 'Đang đợi bạn bè';
       $('detail').textContent = 'Gửi link mời hoặc mã phòng cho người thứ hai.';
     } else if (ended) {
-      $('status').textContent = g.winner === 'draw' ? 'Một ván hòa!' : mode === 'ai' ? g.winner === 'X' ? 'Bạn đã thắng!' : 'AI thắng ván này' : g.winner + ' chiến thắng!';
-      $('detail').textContent = g.winner === 'draw' ? 'Bàn cờ đã kín. Thử phân thắng bại ở ván tiếp theo.' : mode === 'ai' && g.winner === 'O' ? 'Thử lại một ván và dùng gợi ý khi cần nhé.' : 'Hàng quân chiến thắng đã được đánh dấu trên bàn.';
+      $('status').textContent = g.winner === 'draw' ? 'Ván đấu hòa' : mode === 'ai' ? g.winner === 'X' ? 'Bạn chiến thắng' : 'AI chiến thắng' : g.winner + ' chiến thắng';
+      $('detail').textContent = g.winner === 'draw' ? 'Bàn cờ đã kín. Bạn có thể bắt đầu ván mới.' : mode === 'ai' && g.winner === 'O' ? 'Bạn có thể chơi lại và sử dụng gợi ý để luyện tập.' : 'Các quân tạo thành hàng thắng đã được đánh dấu.';
     } else {
       $('status').textContent = mode === 'ai' ? g.turn === 'X' ? 'Đến lượt bạn' : 'AI đang suy nghĩ…' : mode === 'online' ? humanTurn ? 'Đến lượt bạn' : 'Đến lượt đối thủ' : 'Đến lượt ' + g.turn;
       $('detail').textContent = mode === 'ai' ? g.turn === 'X' ? 'Chạm một ô trống để đặt quân X.' : 'Bạn có thể xem lại thế cờ trong lúc đợi.' : mode === 'online' ? humanTurn ? 'Bạn cầm quân ' + side + '. Chọn một ô trống.' : 'Đang chờ nước đi của người chơi còn lại.' : 'Hai người luân phiên đặt X và O.';
@@ -215,6 +218,12 @@ function paint() {
     $('turnPill').className = 'turn-pill' + (ended || waiting || !humanTurn ? ' wait' : '');
     if (mode === 'practice') renderPractice();
     if (ended && mode !== 'practice') renderRematch();
+    if (mode === 'online' && roomUnavailable) {
+      $('status').textContent = 'Phòng không khả dụng';
+      $('detail').textContent = 'Vui lòng tạo hoặc tham gia phòng khác.';
+      $('turnPill').textContent = 'Đã dừng cập nhật';
+      $('turnPill').className = 'turn-pill wait';
+    }
   }
 
   const wins = new Set(g ? winnerLine(g) : []);
@@ -227,7 +236,7 @@ function paint() {
     cell.classList.toggle('win', wins.has(index));
     cell.classList.toggle('suggested', suggestion?.index === index);
     cell.classList.toggle('lesson-target', Boolean(practice && !practice.completed && practiceTarget() === index));
-    cell.disabled = !g || Boolean(symbol) || g.status !== 'playing' || pending || !humanTurn || thinking || Boolean(practice?.completed);
+    cell.disabled = !g || Boolean(symbol) || g.status !== 'playing' || pending || !humanTurn || thinking || Boolean(practice?.completed) || mode === 'online' && roomUnavailable;
     cell.setAttribute('aria-label', `Hàng ${Math.floor(index / N) + 1}, cột ${index % N + 1}: ${symbol || 'ô trống'}${suggestion?.index === index ? ', nước đi gợi ý' : ''}`);
   });
   if (cells[boardFocusIndex].disabled) boardFocusIndex = cells[112].disabled ? cells.findIndex(cell => !cell.disabled) : 112;
@@ -238,17 +247,17 @@ function paint() {
 function renderRematch() {
   const votes = game.rematch || [];
   if (mode !== 'online') {
-    $('rematchTitle').textContent = 'Thêm một ván nữa?';
+    $('rematchTitle').textContent = 'Ván đấu đã kết thúc';
     $('rematchInfo').textContent = 'Bắt đầu lại với bàn cờ mới. Bạn có thể dùng gợi ý để thử một cách đánh khác.';
     if (mode === 'local') $('rematchInfo').textContent = 'Bắt đầu lại với bàn cờ mới. X tiếp tục đi trước.';
     $('rematch').textContent = 'Chơi lại';
     $('rematch').disabled = pending;
   } else {
     const requested = votes.includes(side);
-    $('rematchTitle').textContent = requested ? 'Đã gửi lời mời tái đấu' : votes.length ? 'Đối thủ muốn tái đấu' : 'Thêm một ván cùng bạn bè?';
+    $('rematchTitle').textContent = requested ? 'Đã gửi lời mời tái đấu' : votes.length ? 'Đối thủ đề nghị tái đấu' : 'Ván đấu đã kết thúc';
     $('rematchInfo').textContent = requested ? 'Đang chờ đối thủ xác nhận.' : 'Cả hai người chơi cần đồng ý để bắt đầu ván mới.';
     $('rematch').textContent = requested ? 'Đang chờ đối thủ' : votes.length ? 'Đồng ý tái đấu' : 'Mời tái đấu';
-    $('rematch').disabled = requested || pending;
+    $('rematch').disabled = requested || pending || roomUnavailable;
   }
 }
 
@@ -361,12 +370,22 @@ async function move(r, c) {
   }
   if (mode === 'local') { localMove(r, c, game.turn); return; }
   if (game.turn !== side) return;
+  if (roomUnavailable) return;
   const current = session;
+  let refreshError = null;
   pending = true;
+  roomPolling.pause();
   paint();
-  try { const result = await api({ action: 'move', room, id, row: r, col: c }); if (current === session) { setGame(result.game); schedule(); } }
-  catch (error) { if (current === session) { note(error.message, 'warn'); refresh(); } }
-  finally { if (current === session) { pending = false; paint(); } }
+  try { const result = await api({ action: 'move', room, id, row: r, col: c }); if (current === session) setGame(result.game); }
+  catch (error) { if (current === session) { note(error.message, 'warn'); refreshError = error; } }
+  finally {
+    if (current === session) {
+      pending = false;
+      paint();
+      if (refreshError) refresh(refreshError);
+      else schedule();
+    }
+  }
 }
 
 function canReplaceGame() {
@@ -436,8 +455,8 @@ function loadLesson(step) {
 
 function renderPractice() {
   const lesson = lessons[practice.step];
-  $('coachStep').textContent = `BÀI ${practice.step + 1} / 3`;
-  $('coachTitle').textContent = practice.completed ? 'Làm tốt lắm!' : lesson.title;
+  $('coachStep').textContent = `Bài ${practice.step + 1}/3`;
+  $('coachTitle').textContent = practice.completed ? 'Hoàn thành bài tập' : lesson.title;
   $('coachText').textContent = practice.completed ? lesson.success : lesson.text;
   $('coachNext').classList.toggle('hidden', !practice.completed);
   $('coachNext').textContent = practice.step === 2 ? 'Chơi một ván AI Dễ' : 'Tiếp: ' + lessons[practice.step + 1].title.toLowerCase();
@@ -466,36 +485,46 @@ async function api(data) {
   const response = await fetch('/api/game', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), cache: 'no-store' });
   let json;
   try { json = await response.json(); } catch { throw Error('Phản hồi máy chủ không hợp lệ.'); }
-  if (!response.ok) throw Error(json.error || 'Không thể kết nối máy chủ.');
+  if (!response.ok) throw Object.assign(Error(json.error || 'Không thể kết nối máy chủ.'), { status: response.status, retryAfterMs: retryAfterMs(response.headers.get('Retry-After')) });
   return json;
 }
 
 function schedule() {
-  clearTimeout(poll);
-  if (mode !== 'online') return;
-  poll = setTimeout(refresh, document.hidden ? 2500 : game?.turn === side ? 900 : 450);
+  roomPolling.sync({ reset: true });
 }
 
-async function refresh() {
-  if (mode !== 'online') return;
-  const current = session, currentRoom = room;
-  if (checkingSession === current) { schedule(); return; }
-  checkingSession = current;
-  try {
-    const response = await fetch('/api/game?room=' + encodeURIComponent(currentRoom), { cache: 'no-store' });
-    const json = await response.json();
-    if (session !== current || mode !== 'online' || room !== currentRoom) return;
-    if (!response.ok) throw Error(json.error || 'Mất kết nối');
-    live = true;
-    if (json.game.revision !== game?.revision) setGame(json.game);
-    else paint();
-  } catch {
-    if (session === current && mode === 'online') { live = false; paint(); }
-  } finally {
-    if (checkingSession === current) checkingSession = null;
-    if (session === current && mode === 'online') schedule();
-  }
+function refresh(error) {
+  roomPolling.sync({ immediate: true, force: true, retryAfter: error?.retryAfterMs || 0 });
 }
+
+roomPolling = new RoomPoller({
+  getState: () => mode === 'online' && game ? {
+    session, room, revision: game.revision, status: game.status, turn: game.turn,
+    side, rematch: game.rematch, visible: !document.hidden, online: navigator.onLine !== false, busy: pending,
+  } : null,
+  load: async (state, signal) => {
+    const params = new URLSearchParams({ room: state.room, revision: state.revision });
+    const response = await fetch('/api/game?' + params, { cache: 'no-store', signal });
+    if (response.status === 204) return {};
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw Object.assign(Error(data.error || 'Không thể cập nhật phòng.'), { status: response.status, retryAfterMs: retryAfterMs(response.headers.get('Retry-After')) });
+    if (!data.game || !Number.isSafeInteger(data.game.revision) || data.game.code !== state.room) throw Error('Dữ liệu phòng không hợp lệ.');
+    return data;
+  },
+  onData: data => {
+    const recovered = !live;
+    live = true;
+    if (data.game && (!game || data.game.revision > game.revision)) setGame(data.game);
+    else if (recovered) paint();
+  },
+  onError: (error, { terminal }) => {
+    const changed = live || terminal;
+    live = false;
+    roomUnavailable = terminal;
+    if (changed) paint();
+    if (terminal) note(error.message, 'warn');
+  },
+});
 
 async function create() {
   if (pending) return;
@@ -510,10 +539,9 @@ async function create() {
     history.replaceState(null, '', '?room=' + room);
     setGame(result.game);
     note('Đã tạo phòng. Gửi link mời cho bạn bè!');
-    schedule();
     focusBoard();
   } catch (error) { toast(error.message); }
-  finally { pending = false; paint(); }
+  finally { pending = false; paint(); schedule(); }
 }
 
 async function join(code) {
@@ -532,16 +560,15 @@ async function join(code) {
     history.replaceState(null, '', '?room=' + room);
     setGame(result.game);
     note('Đã vào phòng! Bạn cầm quân ' + side + '.');
-    schedule();
     focusBoard();
     success = true;
   } catch (error) { toast(error.message); }
-  finally { pending = false; paint(); }
+  finally { pending = false; paint(); schedule(); }
   return success;
 }
 
 async function rematch() {
-  if (pending || !game || game.status !== 'finished') return;
+  if (pending || !game || game.status !== 'finished' || mode === 'online' && roomUnavailable) return;
   unlockAudio();
   if (mode !== 'online') {
     stopTimers();
@@ -551,13 +578,22 @@ async function rematch() {
     return;
   }
   const current = session;
+  let refreshError = null;
   pending = true;
+  roomPolling.pause();
   paint();
   try {
     const result = await api({ action: 'rematch', room, id });
-    if (current === session) { setGame(result.game); note(result.game.status === 'finished' ? 'Đã mời tái đấu. Chờ đối thủ xác nhận.' : 'Ván mới bắt đầu!'); schedule(); }
-  } catch (error) { if (current === session) note(error.message, 'warn'); }
-  finally { if (current === session) { pending = false; paint(); } }
+    if (current === session) { setGame(result.game); note(result.game.status === 'finished' ? 'Đã mời tái đấu. Chờ đối thủ xác nhận.' : 'Ván mới bắt đầu!'); }
+  } catch (error) { if (current === session) { note(error.message, 'warn'); refreshError = error; } }
+  finally {
+    if (current === session) {
+      pending = false;
+      paint();
+      if (refreshError) refresh(refreshError);
+      else schedule();
+    }
+  }
 }
 
 function lobby() {
@@ -603,7 +639,7 @@ function popup(inner) {
 
 function aiOptions() {
   if (pending) return;
-  const panel = popup('<h2 id="modalTitle">Đấu với AI</h2><p>Chọn thử thách phù hợp. Bạn cầm X và được đi trước.</p><label class="label" for="aiName">Tên hiển thị <span class="optional">(tùy chọn)</span></label><input class="input" maxlength="24" id="aiName" placeholder="Người chơi" autocomplete="nickname"><div class="label" id="difficultyLabel">Độ khó</div><div class="levels" role="group" aria-labelledby="difficultyLabel"><button class="level" data-d="easy"><b>Dễ</b><small>Làm quen</small></button><button class="level" data-d="medium"><b>Trung bình</b><small>Thử sức</small></button><button class="level" data-d="hard"><b>Khó</b><small>Thách thức</small></button></div><div class="dialog-actions"><button class="btn secondary" id="aiCancel">Hủy</button><button class="btn" id="aiGo">Bắt đầu chơi</button></div>');
+  const panel = popup('<h2 id="modalTitle">Đấu với AI</h2><p>Chọn thử thách phù hợp. Bạn cầm X và được đi trước.</p><label class="label" for="aiName">Tên hiển thị <span class="optional">(tùy chọn)</span></label><input class="input" maxlength="24" id="aiName" placeholder="Người chơi" autocomplete="nickname"><div class="label" id="difficultyLabel">Độ khó</div><div class="levels" role="group" aria-labelledby="difficultyLabel"><button class="level" data-d="easy"><b>Dễ</b><small>Làm quen</small></button><button class="level" data-d="medium"><b>Trung bình</b><small>Thử sức</small></button><button class="level" data-d="hard"><b>Khó</b><small>Nâng cao</small></button></div><div class="dialog-actions"><button class="btn secondary" id="aiCancel">Hủy</button><button class="btn" id="aiGo">Bắt đầu</button></div>');
   const input = panel.querySelector('#aiName');
   input.value = playerName() === 'Người chơi' ? '' : playerName();
   let selected = difficulty;
@@ -734,7 +770,7 @@ $('zoomToggle').onclick = () => {
   const zoomed = $('boardViewport').classList.toggle('zoomed');
   $('zoomToggle').setAttribute('aria-pressed', String(zoomed));
   $('zoomToggle').textContent = zoomed ? 'Thu gọn bàn cờ' : 'Phóng to bàn cờ';
-  $('boardNote').textContent = zoomed ? 'Kéo để di chuyển trên bàn cờ. Mỗi ô lớn hơn để dễ chọn.' : 'X đi trước · Nối ít nhất 5 quân để thắng';
+  $('boardNote').textContent = zoomed ? 'Kéo để di chuyển bàn cờ.' : 'Nối 5 quân để thắng.';
   if (zoomed) requestAnimationFrame(() => revealCell(suggestion?.index ?? (practice && !practice.completed ? practiceTarget() : game?.moves.length ? game.moves.at(-1).row * N + game.moves.at(-1).col : 112)));
 };
 $('create').onclick = create;
@@ -755,8 +791,18 @@ $('invite').onclick = async () => {
 };
 $('code').addEventListener('input', event => { event.target.value = event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
 $('code').onkeydown = event => { if (event.key === 'Enter') $('join').click(); };
-document.addEventListener('visibilitychange', () => { if (!document.hidden && mode === 'online') refresh(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) roomPolling.pause();
+  else if (mode === 'online') refresh();
+});
 window.addEventListener('focus', () => { if (mode === 'online') refresh(); });
+window.addEventListener('offline', () => {
+  roomPolling.pause();
+  if (mode === 'online') { live = false; paint(); }
+});
+window.addEventListener('online', () => { if (mode === 'online') refresh(); });
+window.addEventListener('pagehide', () => roomPolling.pause());
+window.addEventListener('pageshow', event => { if (event.persisted && mode === 'online') refresh(); });
 updateSoundButton();
 paint();
 const query = new URLSearchParams(location.search).get('room');

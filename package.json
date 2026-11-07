@@ -4,5 +4,5 @@
   "private": true,
   "type": "module",
   "engines": { "node": ">=20" },
-  "scripts": { "dev": "node dev-server.mjs", "start": "node dev-server.mjs", "check": "node --check api/game.js && node --check dev-server.mjs && node --check public/app.js" }
+  "scripts": { "dev": "node dev-server.mjs", "start": "node dev-server.mjs", "check": "node --check api/game.js && node --check dev-server.mjs && node --check public/app.js && node --check public/polling.js", "test": "node --test tests/polling.test.mjs tests/game-api.test.mjs" }
 }

@@ -5,39 +5,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f5f9f8">
   <meta name="description" content="Chơi Caro 15×15 ngay với AI, tập chơi qua ba bài hướng dẫn ngắn hoặc mời bạn bè vào một phòng riêng.">
-  <title>Caro XO Club — Chơi một ván nhé</title>
+  <title>Caro XO Club — Cờ Caro trực tuyến</title>
   <link rel="stylesheet" href="/styles.css">
-  <script src="/app.js" defer></script>
+  <script src="/app.js" type="module"></script>
 </head>
 <body>
   <div class="app">
     <header class="top">
       <div class="brand">
         <div class="mark" aria-hidden="true">X<span>O</span></div>
-        <div><h1>Caro XO Club</h1><p class="subtitle">Một bàn cờ, nhiều cách chơi</p></div>
+        <div><h1>Caro XO Club</h1><p class="subtitle">Cờ Caro trực tuyến</p></div>
       </div>
       <div class="top-actions">
-        <button class="quiet-button" id="help">Tập chơi</button>
+        <button class="quiet-button" id="help">Hướng dẫn</button>
         <button class="quiet-button" id="soundToggle" aria-pressed="false">Âm thanh: Tắt</button>
       </div>
     </header>
 
     <nav class="nav" aria-label="Chọn chế độ chơi">
       <button id="navAI">Đấu với AI <small>3 độ khó</small></button>
-      <button id="navOnline">Chơi online <small>Mời bạn bè vào phòng</small></button>
-      <button id="navLocal">Hai người cùng máy <small>Cùng một thiết bị</small></button>
+      <button id="navOnline">Trực tuyến <small>Phòng riêng</small></button>
+      <button id="navLocal">Cùng máy <small>Hai người chơi</small></button>
     </nav>
 
     <main class="layout">
       <section class="card board-card" id="boardCard" aria-labelledby="status">
         <div class="headerboard">
-          <span class="mode-tag" id="modeTag">CARO 15 × 15</span>
-          <span class="muted">Ngang, dọc hoặc chéo</span>
+          <span class="mode-tag" id="modeTag">Cờ Caro</span>
+          <span class="muted">Bàn cờ 15 × 15</span>
         </div>
         <div class="board-status">
           <div>
-            <h2 class="status" id="status" aria-live="polite">Sẵn sàng chơi?</h2>
-            <p class="detail" id="detail">Đấu thử với AI Dễ.</p>
+            <h2 class="status" id="status" aria-live="polite">Bắt đầu ván cờ</h2>
+            <p class="detail" id="detail">Đấu AI ở mức Dễ.</p>
           </div>
           <div class="board-start" id="welcome">
             <button class="btn quick-play" id="quickPlay">Chơi ngay</button>
@@ -48,7 +48,7 @@
 
         <section class="coach hidden" id="coach" aria-labelledby="coachTitle">
           <div class="coach-heading">
-            <div><span class="step" id="coachStep">BÀI 1 / 3</span><h3 id="coachTitle">Đặt quân đầu tiên</h3></div>
+            <div><span class="step" id="coachStep">Bài 1/3</span><h3 id="coachTitle">Đặt quân đầu tiên</h3></div>
             <button class="text-button" id="coachSkip">Bỏ qua</button>
           </div>
           <p id="coachText" aria-live="polite"></p>
@@ -59,7 +59,7 @@
           <div class="board" id="board" role="grid" aria-label="Bàn cờ Caro 15 hàng, 15 cột" aria-rowcount="15" aria-colcount="15"></div>
         </div>
         <div class="board-tools">
-          <p class="board-note" id="boardNote">X đi trước · Nối ít nhất 5 quân để thắng</p>
+          <p class="board-note" id="boardNote">Nối 5 quân để thắng.</p>
           <button class="quiet-button zoom-button" id="zoomToggle" aria-pressed="false" aria-controls="boardViewport">Phóng to bàn cờ</button>
         </div>
         <div class="hint-area hidden" id="hintArea">
@@ -67,24 +67,24 @@
           <p id="hintText" role="status">Xem một nước đi đề xuất và lý do chọn ô đó.</p>
         </div>
         <section class="rematch hidden" id="rematchArea" aria-labelledby="rematchTitle">
-          <h3 id="rematchTitle">Thêm một ván nữa?</h3>
+          <h3 id="rematchTitle">Ván đấu đã kết thúc</h3>
           <p id="rematchInfo"></p>
           <button class="btn" id="rematch">Chơi lại</button>
         </section>
       </section>
 
       <aside class="card control" aria-labelledby="controlTitle">
-        <h2 id="controlTitle">Chơi theo cách của bạn</h2>
-        <p id="controlHelp">Mời bạn bè hoặc chọn một chế độ khác.</p>
+        <h2 id="controlTitle">Chế độ chơi</h2>
+        <p id="controlHelp">Chơi với AI hoặc mời bạn bè tham gia.</p>
         <div id="lobby">
-          <button class="text-button" id="learnStart">Lần đầu chơi? Thử 3 bài tập ngắn</button>
+          <button class="text-button" id="learnStart">Hướng dẫn cho người mới</button>
           <div class="section">
             <label class="label" for="nickname">Tên hiển thị <span class="optional">(tùy chọn)</span></label>
             <input class="input" id="nickname" maxlength="24" autocomplete="nickname" placeholder="Người chơi">
           </div>
           <div class="section">
-            <button class="btn" id="create">Tạo phòng với bạn bè</button>
-            <label class="label" for="code">Hoặc nhập mã phòng</label>
+            <button class="btn" id="create">Tạo phòng</button>
+            <label class="label" for="code">Tham gia bằng mã phòng</label>
             <div class="split">
               <input class="input" id="code" maxlength="6" placeholder="6 ký tự" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Mã phòng 6 ký tự">
               <button class="btn secondary" id="join">Vào phòng</button>
@@ -92,13 +92,13 @@
           </div>
           <div class="section">
             <button class="btn secondary" id="aiStart">Chọn độ khó AI</button>
-            <button class="btn secondary" id="localStart">Hai người cùng máy</button>
+            <button class="btn secondary" id="localStart">Chơi cùng máy</button>
             <p class="small-rule">Luân phiên đặt X và O. Người đầu tiên nối được ít nhất 5 quân liên tiếp sẽ thắng.</p>
           </div>
         </div>
         <div id="active" class="hidden">
           <div class="section">
-            <span class="step" id="roomTitle">CHẾ ĐỘ HIỆN TẠI</span>
+            <span class="step" id="roomTitle">Chế độ chơi</span>
             <div class="room-code" id="room"></div>
             <div class="tag" id="connection"></div>
             <button class="btn secondary hidden" id="invite">Sao chép link mời</button>
@@ -110,12 +110,12 @@
           </div>
           <div class="section">
             <div class="notice" id="notice" role="status" aria-live="polite"></div>
-            <button class="btn secondary" id="leave">Rời trận / Đổi chế độ</button>
+            <button class="btn secondary" id="leave">Đổi chế độ chơi</button>
           </div>
         </div>
       </aside>
     </main>
-    <footer>Caro XO Club · Chơi một ván, vui một chút.</footer>
+    <footer>Caro XO Club · Cờ Caro trực tuyến</footer>
   </div>
   <div id="modalRoot"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>

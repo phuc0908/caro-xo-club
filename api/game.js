@@ -12,23 +12,42 @@ const configured = () => Boolean(process.env.UPSTASH_REDIS_REST_URL && process.e
 
 async function command(...args) {
   if (!configured()) throw fail('Phòng online chưa sẵn sàng: hãy cấu hình Upstash Redis.', 503);
-  const response = await fetch(process.env.UPSTASH_REDIS_REST_URL.replace(/\/$/, ''), {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(args),
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!response.ok) throw fail('Không kết nối được Redis.', 503);
+  let response;
+  try {
+    response = await fetch(process.env.UPSTASH_REDIS_REST_URL.replace(/\/$/, ''), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.UPSTASH_REDIS_REST_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(args),
+      signal: AbortSignal.timeout(8000),
+    });
+  } catch { throw fail('Không kết nối được Redis.', 503); }
+  if (!response.ok) {
+    const error = fail(response.status === 429 ? 'Máy chủ đang bận, vui lòng chờ và thử lại.' : 'Không kết nối được Redis.', response.status === 429 ? 429 : 503);
+    error.retryAfter = response.headers.get('Retry-After') || '5';
+    throw error;
+  }
   const data = await response.json();
   if (data.error) throw fail('Redis: ' + data.error, 503);
   return data.result;
 }
 
-async function read(code) {
-  const json = await command('GET', key(code));
+// Check the revision inside Redis so unchanged polls do not transfer the board
+// from Redis to the function either. A normal GET remains available to old clients.
+const READ_IF_CHANGED_LUA = `
+local raw=redis.call('GET',KEYS[1])
+if not raw then return 0 end
+local ok,current=pcall(cjson.decode,raw)
+if ok and type(current)=='table' and tonumber(current.revision)==tonumber(ARGV[1]) then return false end
+return raw
+`;
+async function read(code, revision = null) {
+  const json = revision === null
+    ? await command('GET', key(code))
+    : await command('EVAL', READ_IF_CHANGED_LUA, '1', key(code), String(revision));
+  if (revision !== null && json === null) return null;
   if (!json) throw fail('Phòng không tồn tại hoặc đã hết hạn', 404);
   try { return JSON.parse(json); } catch { throw fail('Dữ liệu phòng không hợp lệ.', 500); }
 }
@@ -55,6 +74,11 @@ const validCode = value => {
   if (!/^[A-Z0-9]{6}$/.test(c)) throw fail('Mã phòng phải có 6 ký tự.');
   return c;
 };
+const validRevision = value => {
+  if (value === undefined) return null;
+  if (typeof value !== 'string' || !/^(0|[1-9]\d{0,15})$/.test(value) || !Number.isSafeInteger(Number(value))) throw fail('Revision không hợp lệ.');
+  return Number(value);
+};
 const publicGame = game => {
   const { ids, ...safe } = game;
   return safe;
@@ -75,8 +99,9 @@ function win(board, row, col, side) {
 
 const send = (res, status, data) => {
   res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Cache-Control', 'no-store');
+  if (data === undefined) return res.end();
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.end(JSON.stringify(data));
 };
 
@@ -84,7 +109,8 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const code = validCode(req.query?.room);
-      const game = await read(code);
+      const game = await read(code, validRevision(req.query?.revision));
+      if (game === null) return send(res, 204);
       return send(res, 200, { game: publicGame(game) });
     }
     if (req.method !== 'POST') return send(res, 405, { error: 'Method not allowed' });
@@ -148,6 +174,7 @@ export default async function handler(req, res) {
     }
     throw fail('Action không hỗ trợ.', 400);
   } catch (err) {
+    if (err.status === 429 || err.status === 503) res.setHeader('Retry-After', err.retryAfter || '5');
     send(res, err.status || 500, { error: err.status ? err.message : 'Lỗi máy chủ. Vui lòng thử lại.' });
   }
 }
