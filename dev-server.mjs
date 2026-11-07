@@ -12,6 +12,12 @@ try {
   }
 } catch {}
 const port = Number(process.env.PORT) || 3000;
+const assets = {
+  '/': ['index.html', 'text/html'],
+  '/index.html': ['index.html', 'text/html'],
+  '/styles.css': ['styles.css', 'text/css'],
+  '/app.js': ['app.js', 'text/javascript'],
+};
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${port}`);
   if (url.pathname === '/api/game') {
@@ -26,9 +32,11 @@ createServer(async (req, res) => {
     }
     return handler(req, res);
   }
-  if (url.pathname !== '/' && url.pathname !== '/index.html') { res.writeHead(404); res.end('Not found'); return; }
+  const asset = Object.hasOwn(assets, url.pathname) ? assets[url.pathname] : null;
+  if (!asset || !['GET', 'HEAD'].includes(req.method)) { res.writeHead(404); res.end('Not found'); return; }
   try {
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.end(await readFile(path.join(root, 'public/index.html')));
-  } catch { res.writeHead(500); res.end('Cannot read index.html'); }
+    const content = await readFile(path.join(root, 'public', asset[0]));
+    res.setHeader('Content-Type', asset[1] + '; charset=utf-8');
+    res.end(req.method === 'HEAD' ? undefined : content);
+  } catch { res.writeHead(500); res.end('Cannot read asset'); }
 }).listen(port, () => console.log(`Caro XO Club: http://localhost:${port}`));
