@@ -1,0 +1,5 @@
+{
+  "version": 2,
+  "functions": { "api/game.js": { "maxDuration": 10 } },
+  "rewrites": [{ "source": "/", "destination": "/index.html" }]
+}
