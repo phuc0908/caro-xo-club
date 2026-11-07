@@ -168,8 +168,8 @@ function paint() {
   $('coach').classList.toggle('hidden', mode !== 'practice');
   $('hintArea').classList.toggle('hidden', !g || !['ai', 'practice'].includes(mode) || ended || Boolean(practice?.completed));
   $('rematchArea').classList.toggle('hidden', !ended || mode === 'practice');
-  $('modeTag').textContent = ({ ai: 'ĐẤU VỚI AI', online: 'PHÒNG ONLINE', local: 'HAI NGƯỜI CÙNG MÁY', practice: 'TẬP CHƠI' })[mode] || 'CARO 15 × 15';
-  $('count').textContent = practice ? 'Bài ' + (practice.step + 1) + ' / 3' : (g?.moves.length || 0) + ' nước' + (g ? ' · Ván ' + g.round : '');
+  $('modeTag').textContent = ({ ai: 'Đấu với AI', online: 'Trực tuyến', local: 'Chơi cùng máy', practice: 'Tập chơi' })[mode] || 'Cờ Caro';
+  $('count').textContent = practice ? 'Bài ' + (practice.step + 1) + '/3' : g ? 'Ván ' + g.round + ' · ' + g.moves.length + ' nước' : '0 nước';
   $('count').classList.toggle('hidden', !g);
   $('navOnline').classList.toggle('active', mode === 'online');
   $('navAI').classList.toggle('active', mode === 'ai');
@@ -180,17 +180,18 @@ function paint() {
   $('hintText').textContent = suggestion?.text || 'Xem một nước đi đề xuất và lý do chọn ô đó.';
 
   if (!g) {
-    $('status').textContent = 'Sẵn sàng chơi?';
-    $('detail').textContent = 'Đấu thử với AI Dễ.';
+    $('status').textContent = 'Bắt đầu ván cờ';
+    $('detail').textContent = 'Đấu AI ở mức Dễ.';
     $('turnPill').textContent = 'X đi trước · Nối 5 quân để thắng';
     $('turnPill').className = 'turn-pill';
-    $('controlTitle').textContent = 'Chơi theo cách của bạn';
-    $('controlHelp').textContent = 'Mời bạn bè hoặc chọn một chế độ khác.';
+    $('controlTitle').textContent = 'Chế độ chơi';
+    $('controlHelp').textContent = 'Chơi với AI hoặc mời bạn bè tham gia.';
   } else {
     $('controlTitle').textContent = mode === 'practice' ? 'Làm quen với bàn cờ' : 'Trận đấu của bạn';
     $('controlHelp').textContent = mode === 'practice' ? 'Ba bài tập ngắn. Bạn có thể bỏ qua bất cứ lúc nào.' : 'Mỗi lượt đặt một quân. X luôn đi trước.';
-    $('room').textContent = mode === 'online' ? room : mode === 'ai' ? 'AI · ' + levels[difficulty] : mode === 'practice' ? 'TẬP CHƠI' : 'CÙNG MÁY';
-    $('roomTitle').textContent = mode === 'online' ? 'MÃ PHÒNG' : 'CHẾ ĐỘ HIỆN TẠI';
+    $('room').textContent = mode === 'online' ? room : mode === 'ai' ? 'AI · ' + levels[difficulty] : mode === 'practice' ? 'Tập chơi' : 'Chơi cùng máy';
+    $('room').classList.toggle('is-code', mode === 'online');
+    $('roomTitle').textContent = mode === 'online' ? 'Mã phòng' : 'Chế độ chơi';
     $('connection').textContent = mode === 'online' ? live ? 'Đã kết nối' : 'Đang kết nối lại…' : mode === 'ai' ? 'Bạn cầm X · AI cầm O' : 'Chơi trên thiết bị này';
     $('invite').classList.toggle('hidden', mode !== 'online');
     $('px').textContent = g.players.X?.name || 'Đang chờ';
@@ -205,8 +206,8 @@ function paint() {
       $('status').textContent = 'Đang đợi bạn bè';
       $('detail').textContent = 'Gửi link mời hoặc mã phòng cho người thứ hai.';
     } else if (ended) {
-      $('status').textContent = g.winner === 'draw' ? 'Một ván hòa!' : mode === 'ai' ? g.winner === 'X' ? 'Bạn đã thắng!' : 'AI thắng ván này' : g.winner + ' chiến thắng!';
-      $('detail').textContent = g.winner === 'draw' ? 'Bàn cờ đã kín. Thử phân thắng bại ở ván tiếp theo.' : mode === 'ai' && g.winner === 'O' ? 'Thử lại một ván và dùng gợi ý khi cần nhé.' : 'Hàng quân chiến thắng đã được đánh dấu trên bàn.';
+      $('status').textContent = g.winner === 'draw' ? 'Ván đấu hòa' : mode === 'ai' ? g.winner === 'X' ? 'Bạn chiến thắng' : 'AI chiến thắng' : g.winner + ' chiến thắng';
+      $('detail').textContent = g.winner === 'draw' ? 'Bàn cờ đã kín. Bạn có thể bắt đầu ván mới.' : mode === 'ai' && g.winner === 'O' ? 'Bạn có thể chơi lại và sử dụng gợi ý để luyện tập.' : 'Các quân tạo thành hàng thắng đã được đánh dấu.';
     } else {
       $('status').textContent = mode === 'ai' ? g.turn === 'X' ? 'Đến lượt bạn' : 'AI đang suy nghĩ…' : mode === 'online' ? humanTurn ? 'Đến lượt bạn' : 'Đến lượt đối thủ' : 'Đến lượt ' + g.turn;
       $('detail').textContent = mode === 'ai' ? g.turn === 'X' ? 'Chạm một ô trống để đặt quân X.' : 'Bạn có thể xem lại thế cờ trong lúc đợi.' : mode === 'online' ? humanTurn ? 'Bạn cầm quân ' + side + '. Chọn một ô trống.' : 'Đang chờ nước đi của người chơi còn lại.' : 'Hai người luân phiên đặt X và O.';
@@ -238,14 +239,14 @@ function paint() {
 function renderRematch() {
   const votes = game.rematch || [];
   if (mode !== 'online') {
-    $('rematchTitle').textContent = 'Thêm một ván nữa?';
+    $('rematchTitle').textContent = 'Ván đấu đã kết thúc';
     $('rematchInfo').textContent = 'Bắt đầu lại với bàn cờ mới. Bạn có thể dùng gợi ý để thử một cách đánh khác.';
     if (mode === 'local') $('rematchInfo').textContent = 'Bắt đầu lại với bàn cờ mới. X tiếp tục đi trước.';
     $('rematch').textContent = 'Chơi lại';
     $('rematch').disabled = pending;
   } else {
     const requested = votes.includes(side);
-    $('rematchTitle').textContent = requested ? 'Đã gửi lời mời tái đấu' : votes.length ? 'Đối thủ muốn tái đấu' : 'Thêm một ván cùng bạn bè?';
+    $('rematchTitle').textContent = requested ? 'Đã gửi lời mời tái đấu' : votes.length ? 'Đối thủ đề nghị tái đấu' : 'Ván đấu đã kết thúc';
     $('rematchInfo').textContent = requested ? 'Đang chờ đối thủ xác nhận.' : 'Cả hai người chơi cần đồng ý để bắt đầu ván mới.';
     $('rematch').textContent = requested ? 'Đang chờ đối thủ' : votes.length ? 'Đồng ý tái đấu' : 'Mời tái đấu';
     $('rematch').disabled = requested || pending;
@@ -436,8 +437,8 @@ function loadLesson(step) {
 
 function renderPractice() {
   const lesson = lessons[practice.step];
-  $('coachStep').textContent = `BÀI ${practice.step + 1} / 3`;
-  $('coachTitle').textContent = practice.completed ? 'Làm tốt lắm!' : lesson.title;
+  $('coachStep').textContent = `Bài ${practice.step + 1}/3`;
+  $('coachTitle').textContent = practice.completed ? 'Hoàn thành bài tập' : lesson.title;
   $('coachText').textContent = practice.completed ? lesson.success : lesson.text;
   $('coachNext').classList.toggle('hidden', !practice.completed);
   $('coachNext').textContent = practice.step === 2 ? 'Chơi một ván AI Dễ' : 'Tiếp: ' + lessons[practice.step + 1].title.toLowerCase();
@@ -603,7 +604,7 @@ function popup(inner) {
 
 function aiOptions() {
   if (pending) return;
-  const panel = popup('<h2 id="modalTitle">Đấu với AI</h2><p>Chọn thử thách phù hợp. Bạn cầm X và được đi trước.</p><label class="label" for="aiName">Tên hiển thị <span class="optional">(tùy chọn)</span></label><input class="input" maxlength="24" id="aiName" placeholder="Người chơi" autocomplete="nickname"><div class="label" id="difficultyLabel">Độ khó</div><div class="levels" role="group" aria-labelledby="difficultyLabel"><button class="level" data-d="easy"><b>Dễ</b><small>Làm quen</small></button><button class="level" data-d="medium"><b>Trung bình</b><small>Thử sức</small></button><button class="level" data-d="hard"><b>Khó</b><small>Thách thức</small></button></div><div class="dialog-actions"><button class="btn secondary" id="aiCancel">Hủy</button><button class="btn" id="aiGo">Bắt đầu chơi</button></div>');
+  const panel = popup('<h2 id="modalTitle">Đấu với AI</h2><p>Chọn thử thách phù hợp. Bạn cầm X và được đi trước.</p><label class="label" for="aiName">Tên hiển thị <span class="optional">(tùy chọn)</span></label><input class="input" maxlength="24" id="aiName" placeholder="Người chơi" autocomplete="nickname"><div class="label" id="difficultyLabel">Độ khó</div><div class="levels" role="group" aria-labelledby="difficultyLabel"><button class="level" data-d="easy"><b>Dễ</b><small>Làm quen</small></button><button class="level" data-d="medium"><b>Trung bình</b><small>Thử sức</small></button><button class="level" data-d="hard"><b>Khó</b><small>Nâng cao</small></button></div><div class="dialog-actions"><button class="btn secondary" id="aiCancel">Hủy</button><button class="btn" id="aiGo">Bắt đầu</button></div>');
   const input = panel.querySelector('#aiName');
   input.value = playerName() === 'Người chơi' ? '' : playerName();
   let selected = difficulty;
@@ -734,7 +735,7 @@ $('zoomToggle').onclick = () => {
   const zoomed = $('boardViewport').classList.toggle('zoomed');
   $('zoomToggle').setAttribute('aria-pressed', String(zoomed));
   $('zoomToggle').textContent = zoomed ? 'Thu gọn bàn cờ' : 'Phóng to bàn cờ';
-  $('boardNote').textContent = zoomed ? 'Kéo để di chuyển trên bàn cờ. Mỗi ô lớn hơn để dễ chọn.' : 'X đi trước · Nối ít nhất 5 quân để thắng';
+  $('boardNote').textContent = zoomed ? 'Kéo để di chuyển bàn cờ.' : 'Nối 5 quân để thắng.';
   if (zoomed) requestAnimationFrame(() => revealCell(suggestion?.index ?? (practice && !practice.completed ? practiceTarget() : game?.moves.length ? game.moves.at(-1).row * N + game.moves.at(-1).col : 112)));
 };
 $('create').onclick = create;
