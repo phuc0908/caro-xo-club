@@ -55,16 +55,18 @@
           <button class="btn hidden" id="coachNext">Tiếp tục</button>
         </section>
 
+        <div class="hint-area" id="hintArea">
+          <button class="quiet-button" id="hintButton" aria-controls="board hintText" disabled>Gợi ý nước đi</button>
+          <p id="hintText" role="status" aria-atomic="true">Bắt đầu ván AI hoặc Cùng máy để xem gợi ý nước đi.</p>
+          <button class="quiet-button hint-play hidden" id="hintPlay">Đánh ô gợi ý</button>
+        </div>
+
         <div class="board-viewport" id="boardViewport">
           <div class="board" id="board" role="grid" aria-label="Bàn cờ Caro 15 hàng, 15 cột" aria-rowcount="15" aria-colcount="15"></div>
         </div>
         <div class="board-tools">
           <p class="board-note" id="boardNote">Nối 5 quân để thắng.</p>
           <button class="quiet-button zoom-button" id="zoomToggle" aria-pressed="false" aria-controls="boardViewport">Phóng to bàn cờ</button>
-        </div>
-        <div class="hint-area hidden" id="hintArea">
-          <button class="quiet-button" id="hintButton">Gợi ý nước đi</button>
-          <p id="hintText" role="status">Xem một nước đi đề xuất và lý do chọn ô đó.</p>
         </div>
         <section class="rematch hidden" id="rematchArea" aria-labelledby="rematchTitle">
           <h3 id="rematchTitle">Ván đấu đã kết thúc</h3>
