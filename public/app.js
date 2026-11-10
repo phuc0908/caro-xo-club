@@ -32,6 +32,7 @@ for (let r = 0; r < N; r++) {
     cell.setAttribute('role', 'gridcell');
     cell.setAttribute('aria-rowindex', r + 1);
     cell.setAttribute('aria-colindex', c + 1);
+    cell.innerHTML = '<svg class="cell-mark hidden" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path class="piece-x" d="M4.5 4.5 19.5 19.5M19.5 4.5 4.5 19.5"/><circle class="piece-o" cx="12" cy="12" r="8"/></svg>';
     cell.onclick = () => { unlockAudio(); move(r, c); };
     row.append(cell);
     cells.push(cell);
@@ -168,7 +169,7 @@ function paint() {
   $('lobby').classList.toggle('hidden', Boolean(g));
   $('active').classList.toggle('hidden', !g);
   $('coach').classList.toggle('hidden', mode !== 'practice');
-  $('hintArea').classList.toggle('hidden', !g || !['ai', 'practice'].includes(mode) || ended || Boolean(practice?.completed));
+  $('hintArea').classList.toggle('hidden', mode === 'online' || ended || Boolean(practice?.completed));
   $('rematchArea').classList.toggle('hidden', !ended || mode === 'practice');
   $('modeTag').textContent = ({ ai: 'Đấu với AI', online: 'Trực tuyến', local: 'Chơi cùng máy', practice: 'Tập chơi' })[mode] || 'Cờ Caro';
   $('count').textContent = practice ? 'Bài ' + (practice.step + 1) + '/3' : g ? 'Ván ' + g.round + ' · ' + g.moves.length + ' nước' : '0 nước';
@@ -178,8 +179,10 @@ function paint() {
   $('navLocal').classList.toggle('active', mode === 'local');
   for (const control of ['quickPlay', 'learnStart', 'help', 'navAI', 'navLocal', 'navOnline', 'create', 'join', 'aiStart', 'localStart']) $(control).disabled = pending;
   $('leave').disabled = pending;
-  $('hintButton').disabled = pending || thinking || !humanTurn;
-  $('hintText').textContent = suggestion?.text || 'Xem một nước đi đề xuất và lý do chọn ô đó.';
+  $('hintButton').disabled = !canUseHint();
+  $('hintPlay').classList.toggle('hidden', !suggestion);
+  $('hintPlay').disabled = !suggestion || !canUseHint();
+  $('hintText').textContent = suggestion?.text || (!g ? 'Bắt đầu ván AI hoặc Cùng máy để xem gợi ý nước đi.' : thinking ? 'Chờ AI đánh xong để xem gợi ý cho lượt tiếp theo.' : `Xem nước đi đề xuất cho quân ${g.turn} và lý do chọn ô đó.`);
 
   if (!g) {
     $('status').textContent = 'Bắt đầu ván cờ';
@@ -230,14 +233,16 @@ function paint() {
   const last = g?.moves.at(-1);
   cells.forEach((cell, index) => {
     const symbol = g?.board[index] || '';
-    cell.textContent = symbol;
-    cell.classList.toggle('o', symbol === 'O');
+    const suggested = suggestion?.index === index;
+    cell.dataset.symbol = symbol;
+    cell.firstElementChild.classList.toggle('hidden', !symbol && !suggested);
+    cell.classList.toggle('o', (symbol || (suggested ? g.turn : '')) === 'O');
     cell.classList.toggle('last', Boolean(last && last.row * N + last.col === index));
     cell.classList.toggle('win', wins.has(index));
-    cell.classList.toggle('suggested', suggestion?.index === index);
+    cell.classList.toggle('suggested', suggested);
     cell.classList.toggle('lesson-target', Boolean(practice && !practice.completed && practiceTarget() === index));
     cell.disabled = !g || Boolean(symbol) || g.status !== 'playing' || pending || !humanTurn || thinking || Boolean(practice?.completed) || mode === 'online' && roomUnavailable;
-    cell.setAttribute('aria-label', `Hàng ${Math.floor(index / N) + 1}, cột ${index % N + 1}: ${symbol || 'ô trống'}${suggestion?.index === index ? ', nước đi gợi ý' : ''}`);
+    cell.setAttribute('aria-label', `Hàng ${Math.floor(index / N) + 1}, cột ${index % N + 1}: ${symbol || 'ô trống'}${suggested ? ', nước đi gợi ý cho ' + g.turn : ''}`);
   });
   if (cells[boardFocusIndex].disabled) boardFocusIndex = cells[112].disabled ? cells.findIndex(cell => !cell.disabled) : 112;
   if (boardFocusIndex < 0) boardFocusIndex = 112;
@@ -338,13 +343,18 @@ function chooseAI(b) {
   return best;
 }
 
+function canUseHint() {
+  return Boolean(game?.status === 'playing' && ['ai', 'local', 'practice'].includes(mode) && !pending && !thinking && !practice?.completed && (mode !== 'ai' || game.turn === 'X'));
+}
+
 function showHint() {
-  if (!game || !['ai', 'practice'].includes(mode) || game.status !== 'playing' || game.turn !== 'X' || thinking || practice?.completed) return;
-  const best = rankMoves(game.board.slice(), 'X')[0];
+  if (!canUseHint()) return;
+  const symbol = game.turn;
+  const best = rankMoves(game.board.slice(), symbol)[0];
   if (!best) return;
   const coordinate = `hàng ${best.r + 1}, cột ${best.c + 1}`;
-  const reason = !game.moves.length ? 'Bắt đầu gần giữa bàn để có nhiều hướng phát triển.' : best.instant ? 'Nước này nối đủ 5 quân X và giúp bạn thắng.' : best.block ? 'Chặn ô này để đối thủ không nối được 5 quân ở lượt tới.' : best.defense > best.attack ? 'Ô này giúp cản hướng phát triển của đối thủ.' : 'Ô này giúp mở rộng thế tấn công từ những quân X đã có.';
-  suggestion = { index: best.r * N + best.c, text: `Thử ${coordinate}. ${reason}` };
+  const reason = !game.moves.length ? 'Bắt đầu gần giữa bàn để có nhiều hướng phát triển.' : best.instant ? `Nước này nối đủ 5 quân ${symbol} và giúp bạn thắng.` : best.block ? 'Chặn ô này để đối thủ không nối được 5 quân ở lượt tới.' : best.defense > best.attack ? 'Ô này giúp cản hướng phát triển của đối thủ.' : `Ô này giúp mở rộng thế tấn công từ những quân ${symbol} đã có.`;
+  suggestion = { index: best.r * N + best.c, text: `Gợi ý cho ${symbol}: ${coordinate}. ${reason}` };
   paint();
   if ($('boardViewport').classList.contains('zoomed')) revealCell(suggestion.index);
 }
@@ -758,6 +768,12 @@ $('help').onclick = startPractice;
 $('coachSkip').onclick = () => startAI('easy', false);
 $('coachNext').onclick = () => { if (!practice?.completed) return; if (practice.step === 2) startAI('easy', false); else loadLesson(practice.step + 1); };
 $('hintButton').onclick = showHint;
+$('hintPlay').onclick = () => {
+  if (!canUseHint() || !suggestion || game.board[suggestion.index]) return;
+  const index = suggestion.index;
+  unlockAudio();
+  move(Math.floor(index / N), index % N);
+};
 $('soundToggle').onclick = () => {
   soundEnabled = !soundEnabled;
   storage.set('caro-sound', soundEnabled ? 'on' : 'off');
