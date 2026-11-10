@@ -147,6 +147,7 @@ function setGame(next) {
   game = next;
   suggestion = null;
   paint();
+  if (previous?.status !== 'finished' && next.status === 'finished' && mode !== 'practice') revealRematch();
   if (previous && previous.code === next.code && previous.round === next.round && next.moves.length > previous.moves.length) {
     const last = next.moves.at(-1);
     const cell = cells[last.row * N + last.col];
@@ -404,6 +405,17 @@ function canReplaceGame() {
 
 function focusBoard() {
   if (window.innerWidth <= 700) $('boardCard').scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'start' });
+}
+
+function revealRematch() {
+  requestAnimationFrame(() => {
+    if (game?.status !== 'finished' || mode === 'practice') return;
+    const area = $('rematchArea');
+    const bounds = area.getBoundingClientRect();
+    if (bounds.top < 16 || bounds.bottom > window.innerHeight - 16) {
+      area.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'nearest' });
+    }
+  });
 }
 
 function startAI(level = 'easy', check = true) {
