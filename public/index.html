@@ -46,6 +46,14 @@
         </div>
         <div class="turn-pill" id="turnPill">X đi trước · Nối 5 quân để thắng</div>
 
+        <section class="rematch hidden" id="rematchArea" aria-labelledby="rematchTitle">
+          <div class="rematch-copy">
+            <h3 id="rematchTitle">Ván đấu đã kết thúc</h3>
+            <p id="rematchInfo"></p>
+          </div>
+          <button class="btn" id="rematch">Chơi lại</button>
+        </section>
+
         <section class="coach hidden" id="coach" aria-labelledby="coachTitle">
           <div class="coach-heading">
             <div><span class="step" id="coachStep">Bài 1/3</span><h3 id="coachTitle">Đặt quân đầu tiên</h3></div>
@@ -68,11 +76,6 @@
           <p class="board-note" id="boardNote">Nối 5 quân để thắng.</p>
           <button class="quiet-button zoom-button" id="zoomToggle" aria-pressed="false" aria-controls="boardViewport">Phóng to bàn cờ</button>
         </div>
-        <section class="rematch hidden" id="rematchArea" aria-labelledby="rematchTitle">
-          <h3 id="rematchTitle">Ván đấu đã kết thúc</h3>
-          <p id="rematchInfo"></p>
-          <button class="btn" id="rematch">Chơi lại</button>
-        </section>
       </section>
 
       <aside class="card control" aria-labelledby="controlTitle">

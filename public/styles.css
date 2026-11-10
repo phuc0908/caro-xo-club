@@ -110,10 +110,11 @@ h1 { font-size: 20px; letter-spacing: -.025em; white-space: nowrap; }
 .ai-badge { color: var(--muted); font-size: var(--text-xs); line-height: 1.7; margin-top: 11px; }
 .notice { font-size: var(--text-sm); color: #526c61; line-height: 1.65; background: #f1f6f3; border-radius: 9px; padding: 11px; margin-bottom: 12px; }
 .notice.warn { background: #fff5e9; color: #8b5920; }
-.rematch { border: 1px solid #c9e3d5; background: #f0f9f3; border-radius: 10px; padding: 16px; margin-top: 16px; animation: arrive .25s ease-out; }
-.rematch h3 { font-size: 18px; letter-spacing: -.02em; }
-.rematch p { color: #526c61; font-size: var(--text-sm); line-height: 1.65; margin: 8px 0 14px; }
-.rematch .btn { width: auto; min-width: 160px; }
+.rematch { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border: 1px solid #c9e3d5; background: #f0f9f3; border-radius: 10px; padding: 14px; margin-top: 14px; scroll-margin-block: 16px; animation: arrive .25s ease-out; }
+.rematch-copy { flex: 1 1 180px; min-width: 0; }
+.rematch h3 { font-size: 16px; letter-spacing: -.02em; }
+.rematch p { color: #526c61; font-size: var(--text-sm); line-height: 1.65; margin-top: 5px; }
+.rematch .btn { flex: 1 0 auto; width: auto; min-width: 128px; }
 .overlay { position: fixed; inset: 0; z-index: 20; background: #21374e80; backdrop-filter: blur(5px); display: grid; place-items: center; padding: 18px; }
 .dialog { background: #fff; width: min(100%, 440px); max-height: calc(100svh - 36px); overflow: auto; padding: 25px; border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 20px 80px #102c4430; animation: arrive .2s ease-out; }
 .dialog h2 { font-size: 22px; margin-bottom: 10px; letter-spacing: -.025em; }
